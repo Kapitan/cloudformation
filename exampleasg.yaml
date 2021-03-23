@@ -1,0 +1,41 @@
+myALB:
+  Type: AWS::ElasticLoadBalancing::LoadBalancer
+  Properties:
+    Scheme: internet-facinf
+    SecurityGroups:
+      - Ref: allowSshAndEgressAll
+    Subnets:
+      Ref: PublicSubnet2
+    Listeners:
+      - LoadBalancerPort: '80'
+        InstancePort: '80'
+        Protocol: HTTP
+
+
+
+  LoadBalancer:
+    Type: AWS::ElasticLoadBalancing::LoadBalancer
+    Properties:
+      Subnets:
+        - !Ref PublicSubnet1
+        - !Ref PublicSubnet2
+        - !Ref PublicSubnet3
+      CrossZone: 'true'
+      Listeners:
+        - LoadBalancerPort: '80'
+          InstancePort: '80'
+          Protocol: HTTP
+
+secGroupName:
+  Type: AWS::EC2::SecurityGroup
+  Properties:
+    GroupName: 
+    GroupDescription: 
+    VpcId:
+    SecurityGroupIngress:
+      - Security Group Rule
+    SecurityGroupEgress:
+      - Security Group Rule
+    Tags:
+      - Key:
+        Value:

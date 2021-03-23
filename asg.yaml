@@ -128,6 +128,10 @@ Resources:
           IpProtocol: icmp
           FromPort: 8
           ToPort: -1
+        - CidrIp: 0.0.0.0/0
+          IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
       SecurityGroupEgress:
         - CidrIp: 0.0.0.0/0
           FromPort: -1
@@ -137,8 +141,28 @@ Resources:
         - Key: Name
           Value: !Ref EnvName
 
+  myALB:
+    Type: AWS::ElasticLoadBalancing::LoadBalancer
+    Properties:
+      Scheme: internet-facing
+      SecurityGroups:
+        - Ref: allowSshAndEgressAll
+      Subnets:
+        - !Ref PublicSubnet1
+        - !Ref PublicSubnet2
+      Listeners:
+        - LoadBalancerPort: '80'
+          InstancePort: '80'
+          Protocol: HTTP
+
   launchConfigTest1:
     Type: AWS::AutoScaling::LaunchConfiguration
+    Metadata: 
+      AWS::CloudFormation::Init: 
+        config:
+          files:
+            /tmp/index2.html:
+              content: TestString
     Properties:
       LaunchConfigurationName: testconf1
       AssociatePublicIpAddress: true
@@ -155,6 +179,16 @@ Resources:
       KeyName: !Ref SSHkey
       SecurityGroups:
         - Ref: allowSshAndEgressAll
+      UserData:
+        Fn::Base64:
+          !Sub |
+            #!/bin/bash -xe
+            /opt/aws/bin/cfn-init -v --stack ${AWS::StackName} --resource launchConfigTest1 --region ${AWS::Region}
+            cd /tmp
+            yum update -y
+            yum install -y httpd
+            echo "Welcome from the instance" > /var/www/html/index.html
+            sudo -u root service httpd start
 
   asg:
     Type: AWS::AutoScaling::AutoScalingGroup
@@ -162,11 +196,15 @@ Resources:
       AutoScalingGroupName: testasg1
       #AvailabilityZones: !GetAZs ''
       LaunchConfigurationName: !Ref launchConfigTest1
+      LoadBalancerNames: 
+        - !Ref myALB
       DesiredCapacity: 2
       MaxSize: 3
       MinSize: 2
       VPCZoneIdentifier:
         - !Ref PublicSubnet1
+        - !Ref PublicSubnet2
+
       Tags:
         - Key: Name
           Value: !Ref EnvName

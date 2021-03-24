@@ -1,0 +1,271 @@
+Description:  This template deploys a VPC, with a pair of public subnets spread
+  across two Availability Zones. one instance with security-group and DHCPoption
+
+Parameters:
+  EnvName:
+    Description: An environment name that is prefixed to resource names
+    Type: String
+
+  VpcCIDR:
+    Description: Please enter the IP range (CIDR notation) for this VPC
+    Type: String
+    Default: 10.192.0.0/16
+
+  PublicSubnet1CIDR:
+    Description: Please enter the IP range (CIDR notation) for the public subnet in the first Availability Zone
+    Type: String
+    Default: 10.192.10.0/24
+
+  PublicSubnet2CIDR:
+    Description: Please enter the IP range (CIDR notation) for the public subnet in the second Availability Zone
+    Type: String
+    Default: 10.192.11.0/24
+  SSHkey:
+    Description: created ssh key
+    Type: String
+    Default: kapitanav2
+  thisAMI:
+    Description: your ami for this region
+    Type: String
+    Default: ami-038f1ca1bd58a5790
+
+Resources:
+  VPC:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: !Ref VpcCIDR
+      EnableDnsSupport: true
+      EnableDnsHostnames: true
+      Tags:
+        - Key: Name
+          Value: !Ref EnvName
+
+  InternetGateway:
+    Type: AWS::EC2::InternetGateway
+    Properties:
+      Tags:
+        - Key: Name
+          Value: !Ref EnvName
+
+  InternetGatewayAttachment:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties:
+      InternetGatewayId: !Ref InternetGateway
+      VpcId: !Ref VPC
+
+  PublicSubnet1:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC
+      AvailabilityZone: !Select [ 0, !GetAZs '' ]
+      CidrBlock: !Ref PublicSubnet1CIDR
+      MapPublicIpOnLaunch: true
+      Tags:
+        - Key: Name
+          Value: !Sub ${EnvName} Public Subnet (AZ1)
+
+  PublicSubnet2:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC
+      AvailabilityZone: !Select [ 1, !GetAZs  '' ]
+      CidrBlock: !Ref PublicSubnet2CIDR
+      MapPublicIpOnLaunch: true
+      Tags:
+        - Key: Name
+          Value: !Sub ${EnvName} Public Subnet (AZ2)
+
+  PublicRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref VPC
+      Tags:
+        - Key: Name
+          Value: !Sub ${EnvName} Public Routes
+
+  DefaultPublicRoute:
+    Type: AWS::EC2::Route
+    DependsOn: InternetGatewayAttachment
+    Properties:
+      RouteTableId: !Ref PublicRouteTable
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref InternetGateway
+
+  PublicSubnet1RouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref PublicRouteTable
+      SubnetId: !Ref PublicSubnet1
+
+  PublicSubnet2RouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref PublicRouteTable
+      SubnetId: !Ref PublicSubnet2
+
+  DHCPoptinsmy:
+    Type: AWS::EC2::DHCPOptions
+    Properties:
+      DomainName: us-east-1test.compute.internal
+      DomainNameServers: 
+        - AmazonProvidedDNS
+      Tags: 
+        - Key: Name
+          Value: !Ref EnvName
+
+  allowSshAndEgressAll:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupName: allowssh
+      GroupDescription: allow Ssh And Egress All
+      VpcId: !Ref VPC
+      SecurityGroupIngress:
+        - CidrIp: 0.0.0.0/0
+          FromPort: 22
+          IpProtocol: tcp
+          ToPort: 22
+        - CidrIp: 0.0.0.0/0
+          IpProtocol: icmp
+          FromPort: 8
+          ToPort: -1
+        - CidrIp: 0.0.0.0/0
+          IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+      SecurityGroupEgress:
+        - CidrIp: 0.0.0.0/0
+          FromPort: -1
+          ToPort: -1
+          IpProtocol: -1
+      Tags:
+        - Key: Name
+          Value: !Ref EnvName
+
+  allowHTTP:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupName: allowHTTP
+      GroupDescription: HTTP
+      VpcId: !Ref VPC
+      SecurityGroupIngress:
+        - CidrIp: 0.0.0.0/0
+          IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+      Tags:
+        - Key: Name
+          Value: !Ref EnvName
+
+  newlistener:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    Properties: 
+      LoadBalancerArn: !Ref myALB
+      Port: 80
+      Protocol: "HTTP"
+      DefaultActions: 
+        - 
+          Order: 1
+          TargetGroupArn: !Ref MyTG
+          Type: "forward"
+
+
+  myALB:
+      Type: AWS::ElasticLoadBalancingV2::LoadBalancer
+      Properties:
+        Scheme: internet-facing
+        Name: truealb
+        Type: application
+        SecurityGroups:
+          - Ref: allowHTTP
+        Subnets:
+          - !Ref PublicSubnet1
+          - !Ref PublicSubnet2
+        Tags:
+          - Key: Name
+            Value: !Ref EnvName
+
+  launchConfigTest1:
+    Type: AWS::AutoScaling::LaunchConfiguration
+    Metadata: 
+      AWS::CloudFormation::Init: 
+        config:
+          packages:
+            yum:
+              httpd : []
+          files:
+            /var/www/html/index.html:
+              content: test-cfn-alb
+          services: 
+            sysvinit: 
+              httpd: 
+                enabled: "true"
+                ensureRunning: "true"
+    Properties:
+      LaunchConfigurationName: testconf1
+      AssociatePublicIpAddress: true
+      #IamInstanceProfile: 
+      ImageId: !Ref thisAMI
+      #EbsOptimized: true
+      BlockDeviceMappings: 
+        - DeviceName: /dev/xvda
+          Ebs: 
+            VolumeSize: 10
+            VolumeType: "gp2"
+      InstanceMonitoring: false
+      InstanceType: t2.micro
+      KeyName: !Ref SSHkey
+      SecurityGroups:
+        - Ref: allowSshAndEgressAll
+      UserData:
+        Fn::Base64:
+          !Sub |
+            #!/bin/bash -xe
+            /opt/aws/bin/cfn-init -v --stack ${AWS::StackName} --resource launchConfigTest1 --region ${AWS::Region}
+
+  MyTG:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Properties:
+      Name: !Ref EnvName
+      VpcId: !Ref VPC
+      TargetType: instance
+      Port: 80
+      Protocol: HTTP
+
+  asg:
+    Type: AWS::AutoScaling::AutoScalingGroup
+    Properties:
+      AutoScalingGroupName: testasg1
+      #AvailabilityZones: !GetAZs ''
+      LaunchConfigurationName: !Ref launchConfigTest1
+      TargetGroupARNs: 
+        - !Ref MyTG
+      # LoadBalancerNames: 
+      #   - !Ref myALB
+      DesiredCapacity: 2
+      MaxSize: 3
+      MinSize: 2
+      VPCZoneIdentifier:
+        - !Ref PublicSubnet1
+        - !Ref PublicSubnet2
+      Tags:
+        - Key: Name
+          Value: !Ref EnvName
+          PropagateAtLaunch: True
+
+
+Outputs:
+  VPC:
+    Description: A reference to the created VPC
+    Value: !Ref VPC
+
+  PublicSubnets:
+    Description: A list of the public subnets
+    Value: !Join [ ",", [ !Ref PublicSubnet1, !Ref PublicSubnet2 ]]
+
+  PublicSubnet1:
+    Description: A reference to the public subnet in the 1st Availability Zone
+    Value: !Ref PublicSubnet1
+
+  PublicSubnet2:
+    Description: A reference to the public subnet in the 2nd Availability Zone
+    Value: !Ref PublicSubnet2

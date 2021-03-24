@@ -183,7 +183,7 @@ Resources:
               httpd : []
           files:
             /var/www/html/index.html:
-              content: TestString
+              content: test-cfn-alb
           services: 
             sysvinit: 
               httpd: 

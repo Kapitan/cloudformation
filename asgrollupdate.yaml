@@ -26,14 +26,9 @@ Parameters:
     Type: String
     Default: kapitanav2
   thisAMI:
-    Description: your ami for this region amazonlinux
+    Description: your ami for this region
     Type: String
     Default: ami-038f1ca1bd58a5790
-  thisAMI2:
-    Description: your ami for this region RHEL
-    Type: String
-    Default: ami-096fda3c22c1c990a
-    #Default: ami-038f1ca1bd58a5790
 
 Resources:
   VPC:
@@ -207,7 +202,7 @@ Resources:
                 enabled: "true"
                 ensureRunning: "true"
     Properties:
-      LaunchConfigurationName: testconf1amazonl
+      LaunchConfigurationName: testconf1
       AssociatePublicIpAddress: true
       #IamInstanceProfile: 
       ImageId: !Ref thisAMI
@@ -228,44 +223,6 @@ Resources:
             #!/bin/bash -xe
             /opt/aws/bin/cfn-init -v --stack ${AWS::StackName} --resource launchConfigTest1 --region ${AWS::Region}
 
-  launchConfigTest2:
-      Type: AWS::AutoScaling::LaunchConfiguration
-      Metadata: 
-        AWS::CloudFormation::Init: 
-          config:
-            packages:
-              yum:
-                httpd : []
-            files:
-              /var/www/html/index.html:
-                content: test-cfn-alb
-            services: 
-              sysvinit: 
-                httpd: 
-                  enabled: "true"
-                  ensureRunning: "true"
-      Properties:
-        LaunchConfigurationName: testconf2rhel
-        AssociatePublicIpAddress: true
-        #IamInstanceProfile: 
-        ImageId: !Ref thisAMI2
-        #EbsOptimized: true
-        BlockDeviceMappings: 
-          - DeviceName: /dev/sda1
-            Ebs: 
-              VolumeSize: 10
-              VolumeType: "gp2"
-        InstanceMonitoring: false
-        InstanceType: t2.micro
-        KeyName: !Ref SSHkey
-        SecurityGroups:
-          - Ref: allowSshAndEgressAll
-        UserData:
-          Fn::Base64:
-            !Sub |
-              #!/bin/bash -xe
-              /opt/aws/bin/cfn-init -v --stack ${AWS::StackName} --resource launchConfigTest1 --region ${AWS::Region}
-
   MyTG:
     Type: AWS::ElasticLoadBalancingV2::TargetGroup
     Properties:
@@ -277,10 +234,17 @@ Resources:
 
   asg:
     Type: AWS::AutoScaling::AutoScalingGroup
+    UpdatePolicy:
+      AutoScalingRollingUpdate:
+        #MaxBatchSize: Integer
+        MinInstancesInService: 1
+        # SuspendProcesses:
+        #   - List of processes
+        WaitOnResourceSignals: true
     Properties:
       AutoScalingGroupName: testasg1
       #AvailabilityZones: !GetAZs ''
-      LaunchConfigurationName: !Ref launchConfigTest2
+      LaunchConfigurationName: !Ref launchConfigTest1
       TargetGroupARNs: 
         - !Ref MyTG
       # LoadBalancerNames: 

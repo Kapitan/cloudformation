@@ -287,7 +287,7 @@ Resources:
     Properties:
       AutoScalingGroupName: testasg1
       #AvailabilityZones: !GetAZs ''
-      LaunchConfigurationName: !Ref launchConfigTest2
+      LaunchConfigurationName: !Ref launchConfigTest1
       HealthCheckType: ELB
       HealthCheckGracePeriod: 400
       TargetGroupARNs: 

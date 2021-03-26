@@ -189,7 +189,6 @@ Resources:
         Tags:
           - Key: Name
             Value: !Ref EnvName
-            PropagateAtLaunch: True
 
   launchConfigTest1:
     Type: AWS::AutoScaling::LaunchConfiguration
@@ -290,7 +289,7 @@ Resources:
       #AvailabilityZones: !GetAZs ''
       LaunchConfigurationName: !Ref launchConfigTest2
       HealthCheckType: ELB
-      HealthCheckGracePeriod: 200
+      HealthCheckGracePeriod: 400
       TargetGroupARNs: 
         - !Ref MyTG
       # LoadBalancerNames: 

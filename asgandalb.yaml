@@ -1,6 +1,8 @@
-#aws cloudformation create-stack --stack-name test12 --template-body file:///Users/akapit/Documents/ss/testcloudform/asgandalb.yaml --parameters ParameterKey=EnvName,ParameterValue=test1
 Description:  This template deploys a VPC, with a pair of public subnets spread
-  across two Availability Zones. one instance with security-group and DHCPoption
+  across two Availability Zones. one instance with security-group and DHCPoption !And 
+  aws cloudformation create-stack --stack-name test12 --template-body file:///Users/akapit/Documents/ss/testcloudform/asgandalb.yaml --parameters ParameterKey=EnvName,ParameterValue=test1
+  aws cloudformation deploy --template-file ./asgandalb.yaml --stack-name qwe
+
 
 Parameters:
   EnvName:
@@ -158,6 +160,10 @@ Resources:
           IpProtocol: tcp
           FromPort: 80
           ToPort: 80
+        - CidrIp: 0.0.0.0/0
+          IpProtocol: tcp
+          FromPort: 443
+          ToPort: 443
       Tags:
         - Key: Name
           Value: !Ref EnvName
@@ -174,6 +180,21 @@ Resources:
           TargetGroupArn: !Ref MyTG
           Type: "forward"
 
+  # newlistenerhttps:
+  #   Type: AWS::ElasticLoadBalancingV2::Listener
+  #   Properties: 
+  #     LoadBalancerArn: !Ref myALB
+  #     Port: 80
+  #     Protocol: "HTTP"
+  #     DefaultActions:
+  #       - Type: "redirect"
+  #         RedirectConfig:
+  #           Protocol: "HTTPS"
+  #           Port: 443
+  #           Host: "#{host}"
+  #           Path: "/#{path}"
+  #           Query: "#{query}"
+  #           StatusCode: "HTTP_301"
 
   myALB:
       Type: AWS::ElasticLoadBalancingV2::LoadBalancer
@@ -207,7 +228,7 @@ Resources:
                 enabled: "true"
                 ensureRunning: "true"
     Properties:
-      LaunchConfigurationName: testconf1amazonl
+      LaunchConfigurationName: testconf1amazonll2
       AssociatePublicIpAddress: true
       #IamInstanceProfile: 
       ImageId: !Ref thisAMI
@@ -215,7 +236,7 @@ Resources:
       BlockDeviceMappings: 
         - DeviceName: /dev/xvda
           Ebs: 
-            VolumeSize: 10
+            VolumeSize: 8
             VolumeType: "gp2"
       InstanceMonitoring: false
       InstanceType: t2.micro
@@ -245,7 +266,7 @@ Resources:
                   enabled: "true"
                   ensureRunning: "true"
       Properties:
-        LaunchConfigurationName: testconf2rhel
+        LaunchConfigurationName: testconf2rhell2
         AssociatePublicIpAddress: true
         #IamInstanceProfile: 
         ImageId: !Ref thisAMI2
@@ -296,7 +317,7 @@ Resources:
       #   - !Ref myALB
       DesiredCapacity: 2
       MaxSize: 3
-      MinSize: 2
+      MinSize: 1
       VPCZoneIdentifier:
         - !Ref PublicSubnet1
         - !Ref PublicSubnet2

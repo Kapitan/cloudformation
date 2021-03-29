@@ -34,7 +34,7 @@ Parameters:
   thisAMI2:
     Description: your ami for this region RHEL
     Type: String
-    Default: ami-096fda3c22c1c990a
+    Default: ami-042e8287309f5df03
     #Default: ami-038f1ca1bd58a5790
 
 Resources:
@@ -228,7 +228,7 @@ Resources:
                 enabled: "true"
                 ensureRunning: "true"
     Properties:
-      LaunchConfigurationName: testconf1amazonll2
+      #LaunchConfigurationName: testconf1amazonll2
       AssociatePublicIpAddress: true
       #IamInstanceProfile: 
       ImageId: !Ref thisAMI
@@ -255,8 +255,8 @@ Resources:
         AWS::CloudFormation::Init: 
           config:
             packages:
-              yum:
-                httpd : []
+              apt:
+                nginx : []
             files:
               /var/www/html/index.html:
                 content: test-cfn-alb
@@ -266,7 +266,7 @@ Resources:
                   enabled: "true"
                   ensureRunning: "true"
       Properties:
-        LaunchConfigurationName: testconf2rhell2
+        #LaunchConfigurationName: testconf2rhell2
         AssociatePublicIpAddress: true
         #IamInstanceProfile: 
         ImageId: !Ref thisAMI2
@@ -285,7 +285,14 @@ Resources:
           Fn::Base64:
             !Sub |
               #!/bin/bash -xe
-              /opt/aws/bin/cfn-init -v --stack ${AWS::StackName} --resource launchConfigTest1 --region ${AWS::Region}
+
+              # Install AWS cfn-bootstrap utilities
+              apt-get update
+              apt-get -y install nginx
+              apt-get -y install python-pip
+              pip install https://s3.amazonaws.com/cloudformation-examples/aws-cfn-bootstrap-latest.tar.gz
+
+              /opt/aws/bin/cfn-init -v --stack ${AWS::StackName} --resource launchConfigTest2 --region ${AWS::Region}
 
   MyTG:
     Type: AWS::ElasticLoadBalancingV2::TargetGroup
@@ -308,7 +315,7 @@ Resources:
     Properties:
       AutoScalingGroupName: testasg1
       #AvailabilityZones: !GetAZs ''
-      LaunchConfigurationName: !Ref launchConfigTest1
+      LaunchConfigurationName: !Ref launchConfigTest2
       HealthCheckType: ELB
       HealthCheckGracePeriod: 400
       TargetGroupARNs: 

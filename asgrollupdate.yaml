@@ -316,7 +316,7 @@ Resources:
       AutoScalingRollingUpdate:
         MinInstancesInService: 1
         SuspendProcesses:
-          - AZRebalance
+          - HealthCheck
     Properties:
       AutoScalingGroupName: testasg1
       #AvailabilityZones: !GetAZs ''
